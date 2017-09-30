@@ -76,7 +76,7 @@ COMPONENTS_NO_BUILDER := $(filter-out builder,$(COMPONENTS))
 # The package manager used to install dependencies. builder.conf
 # files may depend on this variable to determine the correct
 # dependency names.
-PKG_MANAGER ?= $(if $(wildcard /etc/debian_version),dpkg,rpm)
+PKG_MANAGER ?= $(if $(wildcard /etc/debian_version),dpkg,$(if $(wildcard /etc/arch-release),pacman,rpm))
 
 # Include any BUILDER_PLUGINS builder.conf configurations
 BUILDER_PLUGINS_ALL := $(BUILDER_PLUGINS) $(BUILDER_PLUGINS_DISTS)
@@ -195,15 +195,19 @@ builder.get-sources: build-info
 get-sources: $(filter builder.get-sources, $(COMPONENTS:%=%.get-sources)) $(get-sources-tgt) get-sources-extra
 get-sources-extra: $(get-sources-extra-tgt)
 
-.PHONY: check.rpm check.dpkg check-depend check-depend.rpm check-depend.dpkg
+.PHONY: check.rpm check.dpkg check.pacman check-depend check-depend.rpm check-depend.dpkg check-depend.pacman
 check.rpm: $(if $(shell which rpm 2>/dev/null), /bin/true, please.install.rpm.and.try.again);
 check.dpkg: $(if $(shell which dpkg 2>/dev/null), /bin/true, please.install.dpkg.and.try.again);
+check.pacman: $(if $(shell which pacman 2>/dev/null), /bin/true, please.install.pacman.and.try.again);
 check-depend.rpm:
 	@echo "Currently installed dependencies:" && rpm -q $(DEPENDENCIES) || \
 		{ echo "ERROR: call 'make install-deps' to install missing dependencies"; exit 1; }
 check-depend.dpkg:
 	@test $$(dpkg -l $(DEPENDENCIES) | tail -n +5 | grep '^i' | wc -l) -eq $(words $(DEPENDENCIES)) || \
 		{ echo "ERROR: call 'make install-deps' to install missing dependencies"; exit 1; }
+check-depend.pacman:
+	@echo "Currently installed dependencies:" && pacman -Q $(filter-out rpm-build createrepo, $(DEPENDENCIES)) || \
+		{ echo "ERROR: install the missing dependencies!"; exit 1; }
 check-depend: check.$(PKG_MANAGER) check-depend.$(PKG_MANAGER)
 
 $(filter-out linux-template-builder builder, $(COMPONENTS)): % : %-dom0 %-vm
@@ -601,7 +605,7 @@ push:
 		popd > /dev/null; \
 	done; \
 	echo "All stuff pushed succesfully."
-	
+
 -prepare-merge:
 	@set -a; \
 	SCRIPT_DIR=$(BUILDER_DIR)/scripts; \
@@ -898,7 +902,11 @@ install-deps.rpm::
 install-deps.dpkg::
 	@sudo apt-get -y install $(DEPENDENCIES)
 
+.PHONY: install-deps.pacman
+install-deps.pacman::
+	echo "Unable to automatically install the dependencies, some have to be manually installed from the AUR"
+	exit 1
+
 .PHONY: about
 about::
 	@echo "Makefile"
-
