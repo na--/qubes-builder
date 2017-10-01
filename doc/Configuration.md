@@ -209,6 +209,13 @@ use separate keyring dir for git tags verification
 This can be used to verify git tags with limited set of keys. If you want to
 use your default keyring, set this to empty string.
 
+### EXTERNAL_KEYRING_TO_IMPORT
+> Default: no value
+
+This can be used to add additional keys to the separate build verification
+keyring. It is useful for external developers whose keys are not in
+`qubes-developers-keys.asc`.
+
 ### CLEAN
 > Default: no value
 
